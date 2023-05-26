@@ -19,9 +19,9 @@ int connection_accept(int socket, struct sockaddr *addr);
 int connection_polling(int socket, const poll_config_t *config);
 void connection_close(int socket);
 
-http_server_t *server_init(const http_server_config_t *config);
-int server_listen(const http_server_t *server, unsigned short port);
-void server_destroy(const http_server_t *server);
+http_server_t *http_server_init(const http_server_config_t *config);
+int http_server_listen(const http_server_t *server, unsigned short port);
+void http_server_destroy(const http_server_t *server);
 
 const char *generate_headers(char *dest, HTTP_STATUS_CODES status, const char *body);
 
