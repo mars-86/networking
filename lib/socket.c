@@ -138,21 +138,23 @@ int socket_poll(int listen_sock, const poll_config_t *poll)
     struct sockaddr addr;
     int events = 0, n = 1, i;
     fds[0].fd = listen_sock;
-    fds[0].events = POLLIN;
+    fds[0].events = poll->levents;
 
     do {
         events = evpoll(fds, n, poll->timeout);
         if (events) {
             if (fds[0].revents) {
-                fds[n].fd = socket_accept(fds[0].fd, &addr);
+                fds[n].fd = poll->lev_handler(fds[0].fd, &addr);
                 fds[n].events = poll->events, ++n;
             } else {
                 for (i = 1; i < n; ++i)
                     if (fds[i].revents)
-                        poll->handler(fds[i].fd, &addr), --n;
+                        poll->ev_handler(fds[i].fd, &addr), --n;
             }
         } else {
             //
         }
     } while (1);
+
+    return 0;
 }

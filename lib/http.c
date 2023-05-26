@@ -34,7 +34,7 @@ http_server_t *http_server_init(const http_server_config_t *config)
         server->config->backlog = 5;
         server->config->poll->events = POLLIN;
         server->config->poll->nfds = 32;
-        server->config->poll->handler = NULL;
+        server->config->poll->ev_handler = NULL;
     } else {
         server->config = config;
     }
@@ -45,7 +45,9 @@ http_server_t *http_server_init(const http_server_config_t *config)
 int http_server_listen(const http_server_t *server, unsigned short port)
 {
     int sd = connection_open(server->sock, port, server->config);
-    connection_polling(sd, NULL);
+    int status = connection_polling(sd, server->config->poll);
+
+    return status;
 }
 
 void http_server_destroy(const http_server_t *server)
