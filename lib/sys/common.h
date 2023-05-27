@@ -34,7 +34,7 @@ typedef struct socket {
 typedef struct poll_config {
     // number of file descriptors
 	int nfds;
-    // timeout to check for events
+    // timeout in ms to check for events
 	int timeout;
     // events to listen in fd 0
     int levents;
@@ -49,7 +49,7 @@ typedef struct poll_config {
 
 typedef struct http_server_config {
     int backlog;
-    poll_config_t *poll;
+    poll_config_t poll;
 } http_server_config_t;
 
 typedef struct http_server {

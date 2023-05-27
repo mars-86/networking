@@ -1,9 +1,14 @@
+#include <stdlib.h>
+#include <string.h>
 #include "networking.h"
 
 http_server_config_t *sconfig = NULL;
 
 http_server_t *http_server_init(const http_server_config_t *config)
 {
+    if (!config)
+        return NULL;
+
     http_server_t *server = (http_server_t *)malloc(sizeof(http_server_t));
     if (!server)
         return NULL;
@@ -21,40 +26,23 @@ http_server_t *http_server_init(const http_server_config_t *config)
         return NULL;
     }
 
-    server->config->poll = (poll_config_t *)malloc(sizeof(poll_config_t));
-    if (!(server->config->poll)) {
-        free(server->sock);
-        free(server->config);
-        free(server);
-        return NULL;
-    }
-
-    if (!config) {
-        // default config
-        server->config->backlog = 5;
-        server->config->poll->events = POLLIN;
-        server->config->poll->nfds = 32;
-        server->config->poll->ev_handler = NULL;
-    } else {
-        server->config = config;
-    }
+    memcpy(server->config, config, sizeof(http_server_config_t));
 
     return server;
 }
 
 int http_server_listen(const http_server_t *server, unsigned short port)
 {
-    int sd = connection_open(server->sock, port, server->config);
-    int status = connection_polling(sd, server->config->poll);
+    int sd = connection_open(server->sock, port, server->config->backlog);
+    int status = connection_polling(sd, &(server->config->poll));
 
     return status;
 }
 
-void http_server_destroy(const http_server_t *server)
+void http_server_destroy(http_server_t *server)
 {
     connection_close(server->sock->descriptor);
     free(server->sock);
-    free(server->config->poll);
     free(server->config);
     free(server);
 }
