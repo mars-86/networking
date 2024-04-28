@@ -50,7 +50,7 @@ int connection_recv(int socket, char *buff)
 
 int connection_polling(int socket, const poll_config_t *config)
 {
-    socket_poll(socket, config);
+    return socket_poll(socket, config);
 }
 
 void connection_close(int socket)

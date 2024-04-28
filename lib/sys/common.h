@@ -32,16 +32,24 @@ typedef struct socket {
 } socket_t;
 
 typedef struct poll_config {
+    // number of file descriptors
 	int nfds;
+    // timeout in ms to check for events
 	int timeout;
-	void (*handler)(int socket, struct sockaddr *addr);
+    // events to listen in fd 0
+    int levents;
+    // handler for events in fd 0
+    int (*lev_handler)(int socket, struct sockaddr *addr);
+    // events to listen when fd 0 is already listening
 	int events;
+    // handler for events
+    void (*ev_handler)(int socket, struct sockaddr *addr);
 	struct sockaddr_in sa;
 } poll_config_t;
 
 typedef struct http_server_config {
     int backlog;
-    poll_config_t *poll;
+    poll_config_t poll;
 } http_server_config_t;
 
 typedef struct http_server {
