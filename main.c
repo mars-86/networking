@@ -1,10 +1,15 @@
 #include <stdio.h>
-#include <stdlib.h>
+// #include <stdlib.h>
+#include "lib/sys/linux/proto.h"
 #include "networking.h"
+#include <poll.h>
 
-void print(int s, struct sockaddr *addr)
+char buffer[2048];
+
+void print(int s, struct sockaddr* addr)
 {
-
+    // connection_recv(s, buffer);
+    printf("Message recv in socket: %d\n", s);
 }
 
 int main(void)
@@ -27,13 +32,15 @@ int main(void)
     sconf.poll.nfds = 32;
     sconf.poll.levents = POLLIN;
     sconf.poll.lev_handler = connection_accept;
-    sconf.poll.events = 0;
+    sconf.poll.events = POLLIN;
     sconf.poll.ev_handler = print;
-    sconf.poll.timeout = 10;
+    sconf.poll.timeout = 1000;
 
-    http_server_t *server = http_server_init(&sconf);
+    http_server_t* server = http_server_init(&sconf);
     printf("server created\n");
-    
+
+    http_server_listen(server, 5037);
+
     http_server_destroy(server);
     printf("server destroyed\n");
 

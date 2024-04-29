@@ -17,6 +17,7 @@ int connection_accept(int socket, struct sockaddr *addr)
     int sd;
     if ((sd = socket_accept(socket, addr)) < 0)
         return -1;
+    printf("Connection accepted\n");
     return sd;
 }
 

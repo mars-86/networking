@@ -13,6 +13,7 @@ extern "C" {
 #pragma comment (lib, "Ws2_32.lib")
 #endif // _MSC_VER
 #else
+#include <netinet/in.h>
 #include <sys/socket.h>
 #endif // __WIN32
 
