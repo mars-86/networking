@@ -1,5 +1,9 @@
-#include <stdio.h>
 #include "networking.h"
+#include "sys/common.h"
+#include <stdio.h>
+#include <string.h>
+
+#define SUN_MAX_PATH_LEN 108
 
 #ifdef __WIN32
 #include <winsock2.h>
@@ -7,18 +11,71 @@
 #define _handle_err_and_clean(msg) _handle_err(msg), WSACleanup()
 #define _close_socket(socket) closesocket(socket), WSACleanup()
 #else
-#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <poll.h>
+#include <signal.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
 #define _handle_err(msg) perror(msg)
 #define _handle_err_and_clean(msg) _handle_err(msg)
 #define _close_socket(socket) close(socket)
 #endif // __WIN32
 
-int socket_create(socket_type_t type, socket_t *sock)
+// TODO fix this. Not Thread Safe
+static int __listening = 1;
+
+void sighand(int s)
+{
+    __listening = 0;
+}
+
+static void __set_sighandler(void)
+{
+    struct sigaction sa = { 0 };
+
+    sa.sa_handler = sighand;
+
+    sigaction(SIGINT, &sa, NULL);
+}
+
+static int __create_unix_socket(struct sockaddr* sa, const char* path)
+{
+    struct sockaddr_un __sa;
+
+    size_t __path_len = strlen(path);
+    if (!sa || __path_len > SUN_MAX_PATH_LEN)
+        return -1;
+
+    __sa.sun_family = AF_UNIX;
+    memcpy(__sa.sun_path, path, __path_len);
+
+    memcpy(sa, &__sa, sizeof(struct sockaddr));
+
+    return 0;
+}
+
+static int __create_tcp_udp_socket(struct sockaddr* sa, unsigned short port)
+{
+    struct sockaddr_in __sa;
+    if (!sa)
+        return -1;
+
+    __sa.sin_family = AF_INET;
+    __sa.sin_port = htons(port);
+    __sa.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    memcpy(sa, &__sa, sizeof(struct sockaddr));
+
+    return 0;
+}
+
+int socket_create(socket_type_t type, socket_t* sock)
 {
 #ifdef __WIN32
     WSADATA wsa;
-    if(WSAStartup(MAKEWORD(2,2), &wsa) != 0) {
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
         _handle_err("WSAStartup failed");
         return -1;
     }
@@ -26,25 +83,30 @@ int socket_create(socket_type_t type, socket_t *sock)
 
     int sd, sdomain, stype, sproto;
     switch (type) {
-        case TCP_SOCKET:
-            sdomain = AF_INET;
-            stype = TCP_SOCKET;
-            sproto = 0;
+    case TCP_SOCKET:
+        sdomain = AF_INET;
+        stype = SOCK_STREAM;
+        sproto = IPPROTO_TCP;
         break;
-        case UDP_SOCKET:
-            sdomain = AF_INET;
-            stype = UDP_SOCKET;
-            sproto = 0;
+    case UDP_SOCKET:
+        sdomain = AF_INET;
+        stype = SOCK_DGRAM;
+        sproto = IPPROTO_UDP;
         break;
-        default:
-            _handle_err_and_clean("Unsupported socket type");
-            return -1;
+    case UNIX_SOCKET:
+        sdomain = AF_UNIX;
+        stype = SOCK_STREAM;
+        sproto = IPPROTO_TCP;
+        break;
+    default:
+        _handle_err_and_clean("Unsupported socket type");
+        return -1;
     }
 
-	if ((sd = socket(sdomain, stype, sproto)) == 0) {
+    if ((sd = socket(sdomain, stype, sproto)) == 0) {
         _handle_err_and_clean("create socket failed");
         return -1;
-	}
+    }
 
     if (sock != NULL) {
         sock->descriptor = sd;
@@ -53,72 +115,83 @@ int socket_create(socket_type_t type, socket_t *sock)
         sock->protocol = sproto;
     }
 
-	return sd;
+    return sd;
 }
 
-int socket_listen(int socket, unsigned short port, int backlog, socket_t *sock)
+int socket_listen(int socket, unsigned short port, const char* path, int backlog, socket_t* sock)
 {
-    struct sockaddr_in sa;
-    sa.sin_family = AF_INET;
-    sa.sin_port = htons(port);
-    sa.sin_addr.s_addr = inet_addr("127.0.0.1");
+    struct sockaddr sa;
 
-    if (bind(socket, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
+    if (path) {
+        if (__create_unix_socket(&sa, path) < 0)
+            return -1;
+    } else {
+        if (__create_tcp_udp_socket(&sa, port) < 0)
+            return -1;
+    }
+
+    if (bind(socket, &sa, sizeof(sa)) < 0) {
         _handle_err_and_clean("bind socket");
         return -1;
     }
 
     if (listen(socket, backlog) < 0) {
-		_handle_err_and_clean("listen failed");
+        _handle_err_and_clean("listen failed");
         return -1;
-	}
+    }
 
-    if (sock != NULL) sock->sa = sa;
+    if (sock != NULL) {
+        sock->sa.sin_family = sa.sa_family;
+        sock->sa.sin_addr.s_addr = inet_addr(sa.sa_data);
+        sock->sa.sin_port = port;
+    }
 
-	return 0;
+    return 0;
 }
 
-int socket_accept(int socket, struct sockaddr *addr)
+int socket_accept(int socket, struct sockaddr* addr)
 {
     struct sockaddr_in sa;
-    int addr_len = sizeof(sa);
-    int *addr_len_p = &addr_len;
+    unsigned int addr_len = sizeof(sa);
+    unsigned int* addr_len_p = &addr_len;
 
     int newsd;
-	if ((newsd = accept(socket, (struct sockaddr *)&sa, addr_len_p)) < 0) {
+    if ((newsd = accept(socket, (struct sockaddr*)&sa, addr_len_p)) < 0) {
         _handle_err_and_clean("accept failed");
         return -1;
-	}
+    }
 
-    if (addr) sprintf(addr->sa_data, "%s", inet_ntoa(sa.sin_addr));
+    if (addr)
+        sprintf(addr->sa_data, "%s", inet_ntoa(sa.sin_addr));
 
     return newsd;
 }
 
-int socket_connect(int socket, struct sockaddr *addr)
+int socket_connect(int socket, struct sockaddr* addr)
 {
-    struct sockaddr_in sa;
+    struct sockaddr_in sa = { 0 };
     int addr_len = sizeof(sa);
 
     int newsd;
-    if ((newsd = connect(socket, (struct sockaddr *)&sa, addr_len)) < 0) {
+    if ((newsd = connect(socket, (struct sockaddr*)&sa, addr_len)) < 0) {
         _handle_err_and_clean("connect failed");
         return -1;
     }
 
-    if (addr) sprintf(addr->sa_data, "%s", inet_ntoa(sa.sin_addr));
+    if (addr)
+        memcpy(addr->sa_data, inet_ntoa(sa.sin_addr), sizeof(in_addr_t));
 
     return newsd;
 }
 
-int socket_recv(int socket, char *buff, size_t len, int flags)
+int socket_recv(int socket, void* buff, size_t len, int flags)
 {
-    return recv(socket, buff, len, flags);
+    return recvfrom(socket, buff, len, flags, NULL, NULL);
 }
 
-int socket_send()
+int socket_send(int socket, const void* buff, size_t len, int flags)
 {
-
+    return sendto(socket, buff, len, flags, NULL, 0);
 }
 
 void socket_close(int socket)
@@ -126,35 +199,44 @@ void socket_close(int socket)
     _close_socket(socket);
 }
 
-int socket_poll(int listen_sock, const poll_config_t *poll)
+int socket_poll(int listen_sock, const poll_config_t* config)
 {
 #ifdef __WIN32
-    WSAPOLLFD fds[poll->nfds];
-    int (*evpoll)(WSAPOLLFD *, unsigned long, int) = WSAPoll;    
+    WSAPOLLFD fds[config->nfds];
+    int (*evpoll)(WSAPOLLFD*, unsigned long, int) = WSAPoll;
 #else
-    struct pollfd fds[poll->nfds];
-    int (*evpoll)(pollfd *, nfds_t, int) = poll;
+    // TODO change for dynamic allocation
+    struct pollfd fds[config->nfds];
+    int (*evpoll)(struct pollfd*, nfds_t, int) = poll;
 #endif
     struct sockaddr addr;
-    int events = 0, n = 1, i;
+    int events = 0, n = 1, ret, i;
     fds[0].fd = listen_sock;
-    fds[0].events = poll->levents;
+    fds[0].events = config->levents;
+
+    __set_sighandler();
 
     do {
-        events = evpoll(fds, n, poll->timeout);
+        events = evpoll(fds, n, config->timeout);
         if (events) {
             if (fds[0].revents) {
-                fds[n].fd = poll->lev_handler(fds[0].fd, &addr);
-                fds[n].events = poll->events, ++n;
+                fds[n].fd = config->lev_handler(fds[0].fd, fds[0].revents, &addr);
+                fds[n].events = config->events;
+                ++n;
             } else {
                 for (i = 1; i < n; ++i)
-                    if (fds[i].revents)
-                        poll->ev_handler(fds[i].fd, &addr), --n;
+                    if (fds[i].revents) {
+                        ret = config->ev_handler(fds[i].fd, fds[i].revents, &addr);
+                        if (!ret) {
+                            close(fds[i].fd);
+                            --n;
+                        }
+                    }
             }
         } else {
             //
         }
-    } while (1);
+    } while (__listening);
 
     return 0;
 }

@@ -1,6 +1,7 @@
 #ifndef __LIB_SYS_COMMON_INCLUDED_H__
 #define __LIB_SYS_COMMON_INCLUDED_H__
 
+#include <signal.h>
 #include <stdio.h>
 
 #ifdef __cplusplus
@@ -10,52 +11,70 @@ extern "C" {
 #ifdef __WIN32
 #include <winsock2.h>
 #ifdef _MSC_VER
-#pragma comment (lib, "Ws2_32.lib")
+#pragma comment(lib, "Ws2_32.lib")
 #endif // _MSC_VER
 #else
+#include <netinet/in.h>
 #include <sys/socket.h>
 #endif // __WIN32
 
+#define SET_HEADER(key, value) key ": " value "\r\n"
+
+typedef struct http_server http_server_t;
+
 typedef enum socket_type {
-	TCP_SOCKET = SOCK_STREAM,
-	UDP_SOCKET = SOCK_DGRAM,
-	RAW_SOCKET = SOCK_RAW
+    TCP_SOCKET,
+    UDP_SOCKET,
+    UNIX_SOCKET,
+    RAW_SOCKET
 } socket_type_t;
 
-typedef struct socket {
-	char name[32];
-	int descriptor;
-	int domain;
-	socket_type_t type;
-	int protocol;
-	struct sockaddr_in sa;
-} socket_t;
+struct socket {
+    char name[32];
+    int descriptor;
+    int domain;
+    socket_type_t type;
+    int protocol;
+    struct sockaddr_in sa;
+};
 
-typedef struct poll_config {
+typedef struct socket socket_t;
+
+struct poll_config {
     // number of file descriptors
-	int nfds;
+    int nfds;
     // timeout in ms to check for events
-	int timeout;
+    int timeout;
     // events to listen in fd 0
     int levents;
     // handler for events in fd 0
-    int (*lev_handler)(int socket, struct sockaddr *addr);
+    int (*lev_handler)(int socket, int ev, struct sockaddr* addr);
     // events to listen when fd 0 is already listening
-	int events;
+    int events;
     // handler for events
-    void (*ev_handler)(int socket, struct sockaddr *addr);
-	struct sockaddr_in sa;
-} poll_config_t;
+    int (*ev_handler)(int socket, int ev, struct sockaddr* addr);
 
-typedef struct http_server_config {
+    int (*int_handler)(void);
+
+    struct sockaddr_in sa;
+};
+
+typedef struct poll_config poll_config_t;
+
+struct http_server_config {
     int backlog;
     poll_config_t poll;
-} http_server_config_t;
+};
 
-typedef struct http_server {
-    socket_t *sock;
-    http_server_config_t *config;
-} http_server_t;
+typedef struct http_server_config http_server_config_t;
+
+struct https_server_config {
+    http_server_config_t common;
+};
+
+typedef struct https_server_config https_server_config_t;
+
+typedef const char** header_raw_t;
 
 typedef enum {
     // 1xx INFORMATIONAL RESPONSE
@@ -111,7 +130,7 @@ typedef enum {
     TOO_EARLY,
     UPGRADE_REQUIRED,
     PRECONDITION_REQUIRED = 428,
-    TOO_MANY_REQUEST,
+    TOO_MANY_REQUESTS,
     REQUEST_HEADER_FIELDS_TOO_LARGE = 431,
     UNAVAILABLE_FOR_LEGAL_REASONS = 451,
     // 5xx SERVER ERRORS
