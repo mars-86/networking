@@ -17,7 +17,7 @@ int socket_send(int socket, const void* buff, size_t len, int flags);
 void socket_close(int socket);
 int socket_poll(int listen_sock, const poll_config_t* poll);
 
-int connection_open(socket_t* sock, unsigned short port, int backlog);
+int connection_open(socket_t* sock, int type, unsigned short port, int backlog);
 int connection_accept(int socket, struct sockaddr* addr);
 int connection_recv(int socket, void* buff, size_t len);
 int connection_send(int socket, const void* buff, size_t len);

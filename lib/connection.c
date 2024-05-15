@@ -1,9 +1,9 @@
 #include "networking.h"
 
-int connection_open(socket_t* sock, unsigned short port, int backlog)
+int connection_open(socket_t* sock, int type, unsigned short port, int backlog)
 {
     int sd;
-    if ((sd = socket_create(TCP_SOCKET, sock)) < 0)
+    if ((sd = socket_create(type, sock)) < 0)
         return -1;
 
     if (socket_listen(sd, port, NULL, backlog, sock) < 0)
