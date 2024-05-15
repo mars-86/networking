@@ -3,13 +3,48 @@
 #include "lib/sys/linux/proto.h"
 #include "networking.h"
 #include <poll.h>
+#include <string.h>
 
 char buffer[2048];
 
-void print(int s, struct sockaddr* addr)
+int event_listener(int s, int e, struct sockaddr* addr)
 {
+    int sd;
+    if ((sd = connection_accept(s, addr)) < 0)
+        return -1;
+
+    printf("Connection accepted\n");
+
+    return sd;
+}
+
+int pong(int s, int e, struct sockaddr* addr)
+{
+    char request[2048] = { 0 }, response[2048] = { 0 }, buffer[1024] = { 0 };
+    int rbytes = connection_recv(s, request, 2048);
+    const char* headers[] = {
+        SET_HEADER("Content-Type", "text/plain"),
+        NULL
+    };
+
+    // header_value2(buffer, request, "Content-Type");
+
+    printf("%s\n", buffer);
+
+    printf("on sock %d RECV %d\n", s, rbytes);
+    printf("%s\n", request);
+    if (rbytes > 0) {
+        http_response(response, OK, headers, "world!");
+        int sbytes = connection_send(s, response, strlen(response));
+
+        printf("on sock %d SENT %d\n", s, sbytes);
+        printf("%s\n", response);
+        if (sbytes <= 0)
+            printf("Error on send\n");
+    }
     // connection_recv(s, buffer);
-    printf("Message recv in socket: %d\n", s);
+    // printf("ev %d recv in socket: %d\n", e, s);
+    return rbytes;
 }
 
 int main(void)
@@ -31,9 +66,9 @@ int main(void)
     sconf.backlog = 32;
     sconf.poll.nfds = 32;
     sconf.poll.levents = POLLIN;
-    sconf.poll.lev_handler = connection_accept;
+    sconf.poll.lev_handler = event_listener;
     sconf.poll.events = POLLIN;
-    sconf.poll.ev_handler = print;
+    sconf.poll.ev_handler = pong;
     sconf.poll.timeout = 1000;
 
     http_server_t* server = http_server_init(&sconf);

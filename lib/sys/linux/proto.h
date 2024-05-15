@@ -9,16 +9,18 @@ extern "C" {
 #endif /* __cplusplus */
 
 int socket_create(socket_type_t type, socket_t* sock);
-int socket_listen(int socket, unsigned short port, int backlog, socket_t* sock);
+int socket_listen(int socket, unsigned short port, const char* path, int backlog, socket_t* sock);
 int socket_accept(int socket, struct sockaddr* addr);
 int socket_connect(int socket, struct sockaddr* addr);
-int socket_recv(int socket, char* buff, size_t len, int flags);
+int socket_recv(int socket, void* buff, size_t len, int flags);
+int socket_send(int socket, const void* buff, size_t len, int flags);
 void socket_close(int socket);
 int socket_poll(int listen_sock, const poll_config_t* poll);
 
 int connection_open(socket_t* sock, unsigned short port, int backlog);
 int connection_accept(int socket, struct sockaddr* addr);
-int connection_recv(int socket, char* buff);
+int connection_recv(int socket, void* buff, size_t len);
+int connection_send(int socket, const void* buff, size_t len);
 int connection_polling(int socket, const poll_config_t* config);
 void connection_close(int socket);
 
@@ -26,7 +28,9 @@ http_server_t* http_server_init(const http_server_config_t* config);
 int http_server_listen(const http_server_t* server, unsigned short port);
 void http_server_destroy(http_server_t* server);
 
-const char* generate_headers(char* dest, HTTP_STATUS_CODES status, const char* body);
+char* header_value2(char* dest, const char* headers, const char* key);
+
+const char* http_response(char* dest, HTTP_STATUS_CODES status, const char** headers, const char* body);
 
 #ifdef __cplusplus
 }
