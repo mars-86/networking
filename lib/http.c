@@ -43,7 +43,6 @@ err:
 int http_server_listen(const http_server_t* server, unsigned short port)
 {
     int sd = connection_open(server->sock, port, server->config->backlog);
-    printf("Listening on port: %d\n", port);
     int status = connection_polling(sd, &(server->config->poll));
 
     return status;
