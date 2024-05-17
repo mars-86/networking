@@ -1,5 +1,4 @@
 #include "networking.h"
-#include "sys/common.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -43,7 +42,7 @@ err:
 
 int http_server_listen(const http_server_t* server, unsigned short port)
 {
-    int sd = connection_open(server->sock, TCP_SOCKET, port, server->config->backlog);
+    int sd = connection_open(server->sock, TCP_SOCKET, port, NULL, server->config->backlog);
     int status = connection_polling(sd, &(server->config->poll));
 
     return status;
