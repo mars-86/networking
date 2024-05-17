@@ -1,6 +1,4 @@
 #include "networking.h"
-#include "sys/common.h"
-#include "sys/linux/proto.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -9,9 +7,7 @@ struct http_server {
     http_server_config_t* config;
 };
 
-http_server_config_t* sconfig = NULL;
-
-http_server_t* http_server_init(const http_server_config_t* config)
+http_server_t* local_server_init(const http_server_config_t* config)
 {
     http_server_t* server = NULL;
     if (!config)
@@ -42,23 +38,21 @@ err:
     return NULL;
 }
 
-int http_server_listen(const http_server_t* server, unsigned short port)
+int local_server_listen(const http_server_t* server, const char* path)
 {
     // TODO fill all socket_t fields
     socket_t new_sock;
     int status;
 
-    if ((new_sock.descriptor = connection_open(server->sock, TCP_SOCKET, port, NULL, server->config->backlog)) < 0)
+    if ((new_sock.descriptor = connection_open(server->sock, UNIX_SOCKET, 0, path, server->config->backlog)) == -1)
         return -1;
 
     status = connection_polling(&new_sock, &(server->config->poll));
 
-    connection_close(&new_sock);
-
     return status;
 }
 
-void http_server_destroy(http_server_t* server)
+void local_server_destroy(http_server_t* server)
 {
     connection_close(server->sock);
     free(server->sock);

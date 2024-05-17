@@ -16,8 +16,11 @@ extern "C" {
 #else
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
 #endif // __WIN32
 
+#define SOCKET_NAME_MAX 32
 #define SET_HEADER(key, value) key ": " value "\r\n"
 
 typedef struct http_server http_server_t;
@@ -30,12 +33,16 @@ typedef enum socket_type {
 } socket_type_t;
 
 struct socket {
-    char name[32];
+    char name[SOCKET_NAME_MAX];
     int descriptor;
     int domain;
     socket_type_t type;
     int protocol;
-    struct sockaddr_in sa;
+    // TODO allocate structs dynamically
+    union {
+        struct sockaddr_in sa;
+        struct sockaddr_un su;
+    };
 };
 
 typedef struct socket socket_t;

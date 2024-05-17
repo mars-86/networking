@@ -40,23 +40,24 @@ static void __set_sighandler(void)
     sigaction(SIGINT, &sa, NULL);
 }
 
-static int __create_unix_socket(struct sockaddr* sa, const char* path)
+static int __create_unix_socket(struct sockaddr_un* su, const char* path)
 {
-    struct sockaddr_un __sa;
+    struct sockaddr_un __su;
 
     size_t __path_len = strlen(path);
-    if (!sa || __path_len > SUN_MAX_PATH_LEN)
+    if (!su || __path_len > SUN_MAX_PATH_LEN)
         return -1;
 
-    __sa.sun_family = AF_UNIX;
-    memcpy(__sa.sun_path, path, __path_len);
+    __su.sun_family = AF_UNIX;
+    // __path_len + 1 copy NULL byte
+    memcpy(__su.sun_path, path, __path_len + 1);
 
-    memcpy(sa, &__sa, sizeof(struct sockaddr));
+    memcpy(su, &__su, sizeof(struct sockaddr_un));
 
     return 0;
 }
 
-static int __create_tcp_udp_socket(struct sockaddr* sa, unsigned short port)
+static int __create_tcp_udp_socket(struct sockaddr_in* sa, unsigned short port)
 {
     struct sockaddr_in __sa;
     if (!sa)
@@ -96,7 +97,7 @@ int socket_create(socket_type_t type, socket_t* sock)
     case UNIX_SOCKET:
         sdomain = AF_UNIX;
         stype = SOCK_STREAM;
-        sproto = IPPROTO_TCP;
+        sproto = 0;
         break;
     default:
         _handle_err_and_clean("Unsupported socket type");
@@ -120,19 +121,25 @@ int socket_create(socket_type_t type, socket_t* sock)
 
 int socket_listen(int socket, unsigned short port, const char* path, int backlog, socket_t* sock)
 {
-    struct sockaddr sa;
+    struct sockaddr_in sa;
+    struct sockaddr_un su;
 
     if (path) {
-        if (__create_unix_socket(&sa, path) < 0)
+        if (__create_unix_socket(&su, path) < 0)
             return -1;
+
+        if (bind(socket, (struct sockaddr*)&su, sizeof(su)) < 0) {
+            _handle_err_and_clean("bind socket");
+            return -1;
+        }
     } else {
         if (__create_tcp_udp_socket(&sa, port) < 0)
             return -1;
-    }
 
-    if (bind(socket, &sa, sizeof(sa)) < 0) {
-        _handle_err_and_clean("bind socket");
-        return -1;
+        if (bind(socket, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
+            _handle_err_and_clean("bind socket");
+            return -1;
+        }
     }
 
     if (listen(socket, backlog) < 0) {
@@ -141,8 +148,8 @@ int socket_listen(int socket, unsigned short port, const char* path, int backlog
     }
 
     if (sock != NULL) {
-        sock->sa.sin_family = sa.sa_family;
-        sock->sa.sin_addr.s_addr = inet_addr(sa.sa_data);
+        sock->sa.sin_family = sa.sin_family;
+        sock->sa.sin_addr.s_addr = sa.sin_addr.s_addr;
         sock->sa.sin_port = port;
     }
 
@@ -194,9 +201,12 @@ int socket_send(int socket, const void* buff, size_t len, int flags)
     return sendto(socket, buff, len, flags, NULL, 0);
 }
 
-void socket_close(int socket)
+void socket_close(int socket, const char* path)
 {
     _close_socket(socket);
+
+    if (path)
+        unlink(path);
 }
 
 int socket_poll(int listen_sock, const poll_config_t* config)
