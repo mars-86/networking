@@ -1,17 +1,15 @@
 #include "networking.h"
-#include "sys/common.h"
-#include "sys/linux/proto.h"
+#include "server.h"
 #include <stdlib.h>
 #include <string.h>
 
 struct http_server {
-    socket_t* sock;
-    http_server_config_t* config;
+    server_t* info;
+    int protocol;
+    int type;
 };
 
-http_server_config_t* sconfig = NULL;
-
-http_server_t* http_server_init(const http_server_config_t* config)
+http_server_t* http_server_init(const server_config_t* config)
 {
     http_server_t* server = NULL;
     if (!config)
@@ -21,23 +19,33 @@ http_server_t* http_server_init(const http_server_config_t* config)
     if (!server)
         goto err;
 
-    server->sock = (socket_t*)malloc(sizeof(socket_t));
-    if (!(server->sock))
+    server->info = (server_t*)malloc(sizeof(server_t));
+    if (!server->info)
         goto err;
 
-    server->config = (http_server_config_t*)malloc(sizeof(http_server_config_t));
-    if (!(server->config))
+    server->info->sock = (socket_t*)malloc(sizeof(socket_t));
+    if (!(server->info->sock))
         goto err;
 
-    memcpy(server->config, config, sizeof(http_server_config_t));
+    server->info->config = (server_config_t*)malloc(sizeof(server_config_t));
+    if (!(server->info->config))
+        goto err;
+
+    memcpy(server->info->config, config, sizeof(server_config_t));
 
     return server;
 
 err:
-    if (server && server->sock)
-        free(server->sock);
-    if (server)
+    if (server) {
+        if (server->info) {
+            if (server->info->config)
+                free(server->info->config);
+            if (server->info->sock)
+                free(server->info->sock);
+            free(server->info);
+        }
         free(server);
+    }
 
     return NULL;
 }

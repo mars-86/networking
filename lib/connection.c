@@ -75,5 +75,6 @@ int connection_polling(socket_t* socket, const poll_config_t* config)
 
 void connection_close(socket_t* socket)
 {
-    socket_close(socket->descriptor, NULL);
+    if (socket)
+        socket_close(socket->descriptor, NULL);
 }

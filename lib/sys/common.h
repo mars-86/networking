@@ -68,15 +68,15 @@ struct poll_config {
 
 typedef struct poll_config poll_config_t;
 
-struct http_server_config {
+struct server_config {
     int backlog;
     poll_config_t poll;
 };
 
-typedef struct http_server_config http_server_config_t;
+typedef struct server_config server_config_t;
 
 struct https_server_config {
-    http_server_config_t common;
+    server_config_t common;
 };
 
 typedef struct https_server_config https_server_config_t;

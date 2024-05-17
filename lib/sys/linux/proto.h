@@ -24,11 +24,11 @@ int connection_send(socket_t* socket, const void* buff, size_t len);
 int connection_polling(socket_t* socket, const poll_config_t* config);
 void connection_close(socket_t* sock);
 
-http_server_t* http_server_init(const http_server_config_t* config);
+http_server_t* http_server_init(const server_config_t* config);
 int http_server_listen(const http_server_t* server, unsigned short port);
 void http_server_destroy(http_server_t* server);
 
-http_server_t* local_server_init(const http_server_config_t* config);
+http_server_t* local_server_init(const server_config_t* config);
 int local_server_listen(const http_server_t* server, const char* path);
 void local_server_destroy(http_server_t* server);
 
