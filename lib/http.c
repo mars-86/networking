@@ -1,4 +1,6 @@
 #include "networking.h"
+#include "sys/common.h"
+#include "sys/linux/proto.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -42,15 +44,23 @@ err:
 
 int http_server_listen(const http_server_t* server, unsigned short port)
 {
-    int sd = connection_open(server->sock, TCP_SOCKET, port, NULL, server->config->backlog);
-    int status = connection_polling(sd, &(server->config->poll));
+    // TODO fill all socket_t fields
+    socket_t new_sock;
+    int status;
+
+    if ((new_sock.descriptor = connection_open(server->sock, TCP_SOCKET, port, NULL, server->config->backlog)) < 0)
+        return -1;
+
+    status = connection_polling(&new_sock, &(server->config->poll));
+
+    connection_close(&new_sock);
 
     return status;
 }
 
 void http_server_destroy(http_server_t* server)
 {
-    connection_close(server->sock->descriptor);
+    connection_close(server->sock);
     free(server->sock);
     free(server->config);
     free(server);

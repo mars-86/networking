@@ -40,19 +40,21 @@ err:
 
 int local_server_listen(const http_server_t* server, const char* path)
 {
-    int sd, status;
+    // TODO fill all socket_t fields
+    socket_t new_sock;
+    int status;
 
-    if ((sd = connection_open(server->sock, UNIX_SOCKET, 0, path, server->config->backlog)) == -1)
+    if ((new_sock.descriptor = connection_open(server->sock, UNIX_SOCKET, 0, path, server->config->backlog)) == -1)
         return -1;
 
-    status = connection_polling(sd, &(server->config->poll));
+    status = connection_polling(&new_sock, &(server->config->poll));
 
     return status;
 }
 
 void local_server_destroy(http_server_t* server)
 {
-    connection_close(server->sock->descriptor);
+    connection_close(server->sock);
     free(server->sock);
     free(server->config);
     free(server);
