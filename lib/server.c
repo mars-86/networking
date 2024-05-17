@@ -48,7 +48,7 @@ int server_listen(const server_t* server, int protocol, unsigned short port, con
     socket_t new_sock;
     int status;
 
-    if ((new_sock.descriptor = connection_open(server->sock, protocol, port, NULL, server->config->backlog)) < 0)
+    if ((new_sock.descriptor = connection_open(server->sock, protocol, port, path, server->config->backlog)) < 0)
         return -1;
 
     status = connection_polling(&new_sock, &(server->config->poll));
