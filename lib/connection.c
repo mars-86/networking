@@ -70,7 +70,9 @@ int connection_send(socket_t* socket, const void* buff, size_t len)
 
 int connection_polling(socket_t* socket, const poll_config_t* config)
 {
-    return socket_poll(socket->descriptor, config);
+    if (socket && config)
+        return socket_poll(socket->descriptor, config);
+    return -1;
 }
 
 void connection_close(socket_t* socket)

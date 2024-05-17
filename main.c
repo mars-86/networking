@@ -68,7 +68,7 @@ int main(void)
     socket_close(nsock);
     */
 
-    http_server_config_t sconf;
+    server_config_t sconf;
     sconf.backlog = 32;
     sconf.poll.nfds = 32;
     sconf.poll.levents = POLLIN;

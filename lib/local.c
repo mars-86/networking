@@ -1,13 +1,25 @@
 #include "networking.h"
+#include "server.h"
 #include <stdlib.h>
 #include <string.h>
 
+// TODO change server type
 struct http_server {
-    socket_t* sock;
-    http_server_config_t* config;
+    server_t* info;
+    int protocol;
+    int type;
 };
 
-http_server_t* local_server_init(const http_server_config_t* config)
+static void __free_local_server(http_server_t* server)
+{
+    if (server) {
+        if (server->info)
+            server_destroy(server->info);
+        free(server);
+    }
+}
+
+http_server_t* local_server_init(const server_config_t* config)
 {
     http_server_t* server = NULL;
     if (!config)
@@ -17,45 +29,26 @@ http_server_t* local_server_init(const http_server_config_t* config)
     if (!server)
         goto err;
 
-    server->sock = (socket_t*)malloc(sizeof(socket_t));
-    if (!(server->sock))
-        goto err;
+    server->info = server_init(config);
 
-    server->config = (http_server_config_t*)malloc(sizeof(http_server_config_t));
-    if (!(server->config))
+    if (!server->info)
         goto err;
-
-    memcpy(server->config, config, sizeof(http_server_config_t));
 
     return server;
 
 err:
-    if (server && server->sock)
-        free(server->sock);
-    if (server)
-        free(server);
+    __free_local_server(server);
 
     return NULL;
 }
 
 int local_server_listen(const http_server_t* server, const char* path)
 {
-    // TODO fill all socket_t fields
-    socket_t new_sock;
-    int status;
-
-    if ((new_sock.descriptor = connection_open(server->sock, UNIX_SOCKET, 0, path, server->config->backlog)) == -1)
-        return -1;
-
-    status = connection_polling(&new_sock, &(server->config->poll));
-
-    return status;
+    return server_listen(server->info, UNIX_SOCKET, 0, path);
 }
 
 void local_server_destroy(http_server_t* server)
 {
-    connection_close(server->sock);
-    free(server->sock);
-    free(server->config);
-    free(server);
+    connection_close(server->info->sock);
+    __free_local_server(server);
 }
