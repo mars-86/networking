@@ -41,9 +41,9 @@ err:
     return NULL;
 }
 
-int server_local_listen(const local_server_t* server, const char* path)
+int server_local_listen(const local_server_t* server, const char* path, void (*on_listen)(void* usr))
 {
-    return server_listen(server->type, server->info, UNIX_SOCKET, 0, path, (struct sockaddr_un*)&server->su);
+    return server_listen(server->type, server->info, UNIX_SOCKET, 0, path, (struct sockaddr_un*)&server->su, on_listen);
 }
 
 void server_local_destroy(local_server_t* server)

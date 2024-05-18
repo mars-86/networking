@@ -10,6 +10,23 @@
 
 char buffer[2048];
 
+void on_listen_local(void* usr)
+{
+    if (!usr)
+        return;
+
+    const char* path = (const char*)usr;
+
+    printf("Server listening on %s\n", path);
+}
+
+void on_listen_remote(void* usr)
+{
+    unsigned int* port = (unsigned int*)usr;
+
+    printf("Server listening on port %d\n", *port);
+}
+
 int event_listener(int s, int e, struct sockaddr* addr)
 {
     int sd;
@@ -77,17 +94,28 @@ int main(void)
     sconf.poll.events = POLLIN;
     sconf.poll.ev_handler = pong;
     sconf.poll.timeout = 1000;
+    /*
+        local_server_t* server = server_local_init(&sconf);
+        printf("server created\n");
 
-    local_server_t* server = server_local_init(&sconf);
+        int status = server_local_listen(server, SERVER_PATH, on_listen_local);
+
+        if (status == -1)
+            perror("listen");
+
+        server_local_destroy(server);
+
+        printf("server destroyed\n");
+    */
+    http_server_t* server = server_http_init(&sconf);
     printf("server created\n");
 
-    int status = server_local_listen(server, SERVER_PATH);
-    // int status = server_http_listen(server, 5037);
+    int status = server_http_listen(server, 5037, on_listen_remote);
 
     if (status == -1)
         perror("listen");
 
-    server_local_destroy(server);
+    server_http_destroy(server);
 
     printf("server destroyed\n");
 

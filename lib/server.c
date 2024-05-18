@@ -56,7 +56,7 @@ err:
     return NULL;
 }
 
-int server_listen(server_type_t type, const server_t* server, int protocol, unsigned short port, const char* path, void* saddr)
+int server_listen(server_type_t type, const server_t* server, int protocol, unsigned short port, const char* path, void* saddr, void (*on_listen)(void* usr))
 {
     // TODO fill all socket_t fields
     socket_t new_sock;
@@ -65,9 +65,13 @@ int server_listen(server_type_t type, const server_t* server, int protocol, unsi
     if (type == SERVER_TYPE_LOCAL) {
         if ((new_sock.descriptor = connection_open_local(server->sock, path, server->config->backlog, (struct sockaddr_un*)saddr)) < 0)
             return -1;
+        if (on_listen)
+            on_listen((void*)path);
     } else {
         if ((new_sock.descriptor = connection_open_remote(server->sock, protocol, port, server->config->backlog, (struct sockaddr_in*)saddr)) < 0)
             return -1;
+        if (on_listen)
+            on_listen((void*)&port);
     }
 
     status = connection_polling(&new_sock, &(server->config->poll));

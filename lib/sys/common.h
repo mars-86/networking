@@ -40,6 +40,7 @@ struct socket {
     int domain;
     socket_type_t type;
     int protocol;
+    // TODO remove this union
     union {
         struct sockaddr_in* sa;
         struct sockaddr_un* su;
