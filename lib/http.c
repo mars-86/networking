@@ -1,13 +1,13 @@
 #include "networking.h"
 #include "server.h"
-#include "sys/common.h"
+#include <netinet/in.h>
 #include <stdlib.h>
-#include <string.h>
 
 struct http_server {
     server_t* info;
+    struct sockaddr_in si;
+    server_type_t type;
     int protocol;
-    int type;
 };
 
 static void __free_http_server(http_server_t* server)
@@ -18,7 +18,7 @@ static void __free_http_server(http_server_t* server)
     }
 }
 
-http_server_t* http_server_init(const server_config_t* config)
+http_server_t* server_http_init(const server_config_t* config)
 {
     http_server_t* server = NULL;
     if (!config)
@@ -28,7 +28,8 @@ http_server_t* http_server_init(const server_config_t* config)
     if (!server)
         goto err;
 
-    server->info = server_init(config);
+    server->type = SERVER_TYPE_REMOTE;
+    server->info = server_init(server->type, config);
 
     if (!server->info)
         goto err;
@@ -41,12 +42,13 @@ err:
     return NULL;
 }
 
-int http_server_listen(const http_server_t* server, unsigned short port)
+int server_http_listen(const http_server_t* server, unsigned short port)
 {
-    return server_listen(server->info, TCP_SOCKET, port, NULL);
+    return server_listen(server->type, server->info, TCP_SOCKET, port, NULL, (struct sockaddr_in*)&server->si);
 }
 
-void http_server_destroy(http_server_t* server)
+void server_http_destroy(http_server_t* server)
 {
+    connection_close_remote(server->info->sock);
     __free_http_server(server);
 }

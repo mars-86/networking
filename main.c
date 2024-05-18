@@ -6,7 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#define SERVER_PATH "/home/server.sock"
+#define SERVER_PATH "/home/mars/server.sock"
 
 char buffer[2048];
 
@@ -70,32 +70,26 @@ int main(void)
     */
 
     server_config_t sconf;
-    sconf.type = SERVER_TYPE_LOCAL;
     sconf.backlog = 32;
     sconf.poll.nfds = 32;
-    sconf.poll.levents = POLLIN;
-    sconf.poll.lev_handler = event_listener;
+    sconf.poll.fd0_events = POLLIN;
+    sconf.poll.fd0_ev_handler = event_listener;
     sconf.poll.events = POLLIN;
     sconf.poll.ev_handler = pong;
     sconf.poll.timeout = 1000;
 
-    http_server_t* server = http_server_init(&sconf);
+    local_server_t* server = server_local_init(&sconf);
     printf("server created\n");
 
-    int status = local_server_listen(server, SERVER_PATH);
-    // int status = http_server_listen(server, 5037);
+    int status = server_local_listen(server, SERVER_PATH);
+    // int status = server_http_listen(server, 5037);
 
     if (status == -1)
         perror("listen");
 
-    http_server_destroy(server);
+    server_local_destroy(server);
 
     printf("server destroyed\n");
-
-    if (unlink(SERVER_PATH) < 0) {
-        perror("remove");
-        return -1;
-    }
 
     return 0;
 }

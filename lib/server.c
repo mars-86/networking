@@ -1,28 +1,24 @@
 #include "server.h"
 #include "networking.h"
 #include "sys/common.h"
+#include "sys/linux/proto.h"
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/un.h>
 
 static void __free_server(server_t* server)
 {
     if (server) {
         if (server->config)
             free(server->config);
-        if (server->sock) {
-            connection_close(server->sock);
-            if (server->sock->su)
-                free(server->sock->su);
-            if (server->sock->sa)
-                free(server->sock->sa);
+        if (server->sock)
             free(server->sock);
-        }
         free(server);
     }
 }
 
-server_t* server_init(const server_config_t* config)
+server_t* server_init(server_type_t type, const server_config_t* config)
 {
     server_t* server = NULL;
     if (!config)
@@ -36,7 +32,7 @@ server_t* server_init(const server_config_t* config)
     if (!(server->sock))
         goto err;
 
-    if (config->type == SERVER_TYPE_LOCAL) {
+    if (type == SERVER_TYPE_LOCAL) {
         server->sock->su = (struct sockaddr_un*)malloc(sizeof(struct sockaddr_un));
         if (!server->sock->su)
             goto err;
@@ -60,18 +56,23 @@ err:
     return NULL;
 }
 
-int server_listen(const server_t* server, int protocol, unsigned short port, const char* path)
+int server_listen(server_type_t type, const server_t* server, int protocol, unsigned short port, const char* path, void* saddr)
 {
     // TODO fill all socket_t fields
     socket_t new_sock;
     int status;
 
-    if ((new_sock.descriptor = connection_open(server->sock, protocol, port, path, server->config->backlog)) < 0)
-        return -1;
+    if (type == SERVER_TYPE_LOCAL) {
+        if ((new_sock.descriptor = connection_open_local(server->sock, path, server->config->backlog, (struct sockaddr_un*)saddr)) < 0)
+            return -1;
+    } else {
+        if ((new_sock.descriptor = connection_open_remote(server->sock, protocol, port, server->config->backlog, (struct sockaddr_in*)saddr)) < 0)
+            return -1;
+    }
 
     status = connection_polling(&new_sock, &(server->config->poll));
 
-    connection_close(&new_sock);
+    connection_close_remote(&new_sock);
 
     return status;
 }

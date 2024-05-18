@@ -1,5 +1,5 @@
 #include "networking.h"
-#include "sys/common.h"
+#include <sys/un.h>
 
 int connection_open(socket_t* sock, int type, unsigned short port, const char* path, int backlog)
 {
@@ -7,7 +7,39 @@ int connection_open(socket_t* sock, int type, unsigned short port, const char* p
     if ((sd = socket_create(type, sock)) < 0)
         return -1;
 
-    if (socket_listen(sd, port, path, backlog, sock) < 0)
+    if (path) {
+        if (socket_unix_listen(sd, path, backlog, sock->su) < 0)
+            return -1;
+    } else {
+        if (socket_inet_listen(sd, port, backlog, sock->sa) < 0)
+            return -1;
+    }
+
+    return sd;
+}
+
+int connection_open_local(socket_t* sock, const char* path, int backlog, struct sockaddr_un* su)
+{
+    int sd;
+    if ((sd = socket_create(UNIX_SOCKET, sock)) < 0)
+        return -1;
+
+    if (!path)
+        return -1;
+
+    if (socket_unix_listen(sd, path, backlog, su) < 0)
+        return -1;
+
+    return sd;
+}
+
+int connection_open_remote(socket_t* sock, int type, unsigned short port, int backlog, struct sockaddr_in* si)
+{
+    int sd;
+    if ((sd = socket_create(type, sock)) < 0)
+        return -1;
+
+    if (socket_inet_listen(sd, port, backlog, si) < 0)
         return -1;
 
     return sd;
@@ -33,7 +65,7 @@ int connection_recv(socket_t* socket, void* buff, size_t len)
 {
     int bytes = 0, total = 0;
     // do {
-    bytes = socket_recv(socket->descriptor, (unsigned char*)buff, len, 0);
+    bytes = socket_recv(socket->descriptor, (unsigned char*)buff, len, 0, NULL, NULL);
     if (bytes) {
         printf("Received: %d, total: %d\n", bytes, total += bytes);
     } else if (bytes == 0) {
@@ -52,7 +84,7 @@ int connection_send(socket_t* socket, const void* buff, size_t len)
 {
     int bytes = 0, total = 0;
     // do {
-    bytes = socket_send(socket->descriptor, (unsigned char*)buff, len, 0);
+    bytes = socket_send(socket->descriptor, (unsigned char*)buff, len, 0, NULL, 0);
     if (bytes) {
         printf("Sent: %d, total: %d\n", bytes, total += bytes);
     } else if (bytes == 0) {
@@ -70,13 +102,32 @@ int connection_send(socket_t* socket, const void* buff, size_t len)
 
 int connection_polling(socket_t* socket, const poll_config_t* config)
 {
+    // TODO check config params
     if (socket && config)
-        return socket_poll(socket->descriptor, config);
+        return socket_poll(
+            socket->descriptor,
+            config->nfds,
+            config->fd0_events,
+            config->events,
+            config->timeout,
+            config->fd0_ev_handler,
+            config->ev_handler,
+            config->int_handler);
     return -1;
 }
 
-void connection_close(socket_t* socket)
+int connection_close_local(const char* path)
+{
+    if (path)
+        if (socket_close(0, path) < 0)
+            return -1;
+    return 0;
+}
+
+int connection_close_remote(socket_t* socket)
 {
     if (socket)
-        socket_close(socket->descriptor, NULL);
+        if (socket_close(socket->descriptor, NULL) < 0)
+            return -1;
+    return 0;
 }
