@@ -9,7 +9,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 int socket_create(socket_type_t type, socket_t* sock);
-int socket_listen(int socket, unsigned short port, const char* path, int backlog, socket_t* sock);
+int socket_listen(int socket, int backlog, unsigned short port, struct sockaddr_in* si, const char* path, struct sockaddr_un* su);
 int socket_inet_listen(int socket, unsigned short port, int backlog, struct sockaddr_in* si);
 int socket_unix_listen(int socket, const char* path, int backlog, struct sockaddr_un* su);
 int socket_accept(int socket, struct sockaddr* addr);

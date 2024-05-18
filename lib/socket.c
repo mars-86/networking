@@ -120,27 +120,28 @@ int socket_create(socket_type_t type, socket_t* sock)
 }
 
 // TODO split in two functions
-int socket_listen(int socket, unsigned short port, const char* path, int backlog, socket_t* sock)
+int socket_listen(int socket, int backlog, unsigned short port, struct sockaddr_in* si, const char* path, struct sockaddr_un* su)
 {
-    struct sockaddr_in sa;
-    struct sockaddr_un su;
+    struct sockaddr_in __si = { 0 };
+    struct sockaddr_un __su = { 0 };
+    void* __saddr = NULL;
+    socklen_t __saddr_len = 0;
 
     if (path) {
-        if (__create_unix_socket(&su, path) < 0)
+        if (__create_unix_socket(&__su, path) < 0)
             return -1;
-
-        if (bind(socket, (struct sockaddr*)&su, sizeof(su)) < 0) {
-            _handle_err_and_clean("bind socket");
-            return -1;
-        }
+        __saddr = (struct sockaddr_un*)&__su;
+        __saddr_len = sizeof(struct sockaddr_un);
     } else {
-        if (__create_tcp_udp_socket(&sa, port) < 0)
+        if (__create_tcp_udp_socket(&__si, port) < 0)
             return -1;
+        __saddr = (struct sockaddr_in*)&__si;
+        __saddr_len = sizeof(struct sockaddr_in);
+    }
 
-        if (bind(socket, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
-            _handle_err_and_clean("bind socket");
-            return -1;
-        }
+    if (bind(socket, (struct sockaddr*)__saddr, __saddr_len) < 0) {
+        _handle_err_and_clean("bind socket");
+        return -1;
     }
 
     if (listen(socket, backlog) < 0) {
@@ -148,15 +149,12 @@ int socket_listen(int socket, unsigned short port, const char* path, int backlog
         return -1;
     }
 
-    if (sock != NULL) {
-        if (path) {
-            sock->su->sun_family = su.sun_family;
-            memcpy(sock->su->sun_path, su.sun_path, strlen(su.sun_path) + 1);
-        } else {
-            sock->sa->sin_family = sa.sin_family;
-            sock->sa->sin_addr.s_addr = sa.sin_addr.s_addr;
-            sock->sa->sin_port = port;
-        }
+    if (path) {
+        if (su)
+            memcpy(su, &__su, sizeof(struct sockaddr_un));
+    } else {
+        if (si)
+            memcpy(si, &__si, sizeof(struct sockaddr_in));
     }
 
     return 0;

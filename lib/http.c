@@ -7,6 +7,7 @@ struct http_server {
     struct sockaddr_in si;
     server_type_t type;
     int protocol;
+    int port;
 };
 
 static void __free_http_server(http_server_t* server)

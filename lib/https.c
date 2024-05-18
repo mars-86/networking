@@ -8,6 +8,7 @@ struct https_server {
     server_type_t type;
     const char* certs;
     int protocol;
+    int port;
 };
 
 static void __free_https_server(https_server_t* server)
