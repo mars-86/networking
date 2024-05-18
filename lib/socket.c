@@ -148,9 +148,14 @@ int socket_listen(int socket, unsigned short port, const char* path, int backlog
     }
 
     if (sock != NULL) {
-        sock->sa.sin_family = sa.sin_family;
-        sock->sa.sin_addr.s_addr = sa.sin_addr.s_addr;
-        sock->sa.sin_port = port;
+        if (path) {
+            sock->su->sun_family = su.sun_family;
+            memcpy(sock->su->sun_path, su.sun_path, strlen(su.sun_path) + 1);
+        } else {
+            sock->sa->sin_family = sa.sin_family;
+            sock->sa->sin_addr.s_addr = sa.sin_addr.s_addr;
+            sock->sa->sin_port = port;
+        }
     }
 
     return 0;

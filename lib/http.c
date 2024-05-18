@@ -13,8 +13,7 @@ struct http_server {
 static void __free_http_server(http_server_t* server)
 {
     if (server) {
-        if (server->info)
-            server_destroy(server->info);
+        server_destroy(server->info);
         free(server);
     }
 }
@@ -49,6 +48,5 @@ int http_server_listen(const http_server_t* server, unsigned short port)
 
 void http_server_destroy(http_server_t* server)
 {
-    connection_close(server->info->sock);
     __free_http_server(server);
 }

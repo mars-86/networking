@@ -38,14 +38,18 @@ struct socket {
     int domain;
     socket_type_t type;
     int protocol;
-    // TODO allocate structs dynamically
     union {
-        struct sockaddr_in sa;
-        struct sockaddr_un su;
+        struct sockaddr_in* sa;
+        struct sockaddr_un* su;
     };
 };
 
 typedef struct socket socket_t;
+
+typedef enum server_type {
+    SERVER_TYPE_LOCAL = 1,
+    SERVER_TYPE_REMOTE
+} server_type_t;
 
 struct poll_config {
     // number of file descriptors
@@ -69,8 +73,9 @@ struct poll_config {
 typedef struct poll_config poll_config_t;
 
 struct server_config {
-    int backlog;
+    server_type_t type;
     poll_config_t poll;
+    int backlog;
 };
 
 typedef struct server_config server_config_t;
