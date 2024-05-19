@@ -1,13 +1,28 @@
-#include <stdio.h>
-// #include <stdlib.h>
 #include "networking.h"
-#include <poll.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
 #define SERVER_PATH "/home/mars/server.sock"
 
 char buffer[2048];
+
+void on_listen_local(void* usr)
+{
+    if (!usr)
+        return;
+
+    const char* path = (const char*)usr;
+
+    printf("Server listening on %s\n", path);
+}
+
+void on_listen_remote(void* usr)
+{
+    unsigned int* port = (unsigned int*)usr;
+
+    printf("Server listening on port %d\n", *port);
+}
 
 int event_listener(int s, int e, struct sockaddr* addr)
 {
@@ -40,7 +55,7 @@ int pong(int s, int e, struct sockaddr* addr)
     printf("on sock %d RECV %d\n", s, rbytes);
     printf("%s\n", request);
     if (rbytes > 0) {
-        http_response(response, OK, headers, "world!");
+        http_response(response, OK, headers, "world!\n");
         int sbytes = connection_send(&sock, response, strlen(response));
 
         printf("on sock %d SENT %d\n", s, sbytes);
@@ -68,32 +83,39 @@ int main(void)
     socket_close(nsock);
     */
 
-    http_server_config_t sconf;
+    server_config_t sconf;
     sconf.backlog = 32;
     sconf.poll.nfds = 32;
-    sconf.poll.levents = POLLIN;
-    sconf.poll.lev_handler = event_listener;
+    sconf.poll.fd0_events = POLLIN;
+    sconf.poll.fd0_ev_handler = event_listener;
     sconf.poll.events = POLLIN;
     sconf.poll.ev_handler = pong;
     sconf.poll.timeout = 1000;
 
-    http_server_t* server = http_server_init(&sconf);
+    local_server_t* server = server_local_init(&sconf);
     printf("server created\n");
 
-    int status = local_server_listen(server, SERVER_PATH);
-    // int status = http_server_listen(server, 5037);
+    int status = server_local_listen(server, SERVER_PATH, on_listen_local);
 
     if (status == -1)
         perror("listen");
 
-    http_server_destroy(server);
+    server_local_destroy(server);
 
     printf("server destroyed\n");
 
-    if (unlink(SERVER_PATH) < 0) {
-        perror("remove");
-        return -1;
-    }
+    /*
+        http_server_t* server = server_http_init(&sconf);
+        printf("server created\n");
 
+        int status = server_http_listen(server, 5037, on_listen_remote);
+
+        if (status == -1)
+            perror("listen");
+
+        server_http_destroy(server);
+
+        printf("server destroyed\n");
+    */
     return 0;
 }

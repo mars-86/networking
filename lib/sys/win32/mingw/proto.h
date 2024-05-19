@@ -10,12 +10,14 @@ extern "C" {
 
 int socket_create(socket_type_t type, socket_t* sock);
 int socket_listen(int socket, unsigned short port, const char* path, int backlog, socket_t* sock);
+int socket_inet_listen(int socket, unsigned short port, int backlog, struct sockaddr_in* si);
+int socket_unix_listen(int socket, const char* path, int backlog, struct sockaddr_un* su);
 int socket_accept(int socket, struct sockaddr* addr);
 int socket_connect(int socket, struct sockaddr* addr);
 int socket_recv(int socket, void* buff, size_t len, int flags);
 int socket_send(int socket, const void* buff, size_t len, int flags);
-void socket_close(int socket);
 int socket_poll(int listen_sock, const poll_config_t* poll);
+void socket_close(int socket);
 
 int connection_open(socket_t* sock, int type, unsigned short port, int backlog);
 int connection_accept(int socket, struct sockaddr* addr);
@@ -23,7 +25,7 @@ int connection_to(int socket, struct sockaddr* addr, struct sockaddr_in* raddr);
 int connection_polling(int socket, const poll_config_t* config);
 void connection_close(int socket);
 
-http_server_t* http_server_init(const http_server_config_t* config);
+http_server_t* http_server_init(const server_config_t* config);
 int http_server_listen(const http_server_t* server, unsigned short port);
 void http_server_destroy(http_server_t* server);
 

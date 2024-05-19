@@ -1,61 +1,53 @@
 #include "networking.h"
+#include "server.h"
 #include <stdlib.h>
-#include <string.h>
 
-struct http_server {
-    socket_t* sock;
-    http_server_config_t* config;
+struct local_server {
+    server_t* info;
+    struct sockaddr_un su;
+    server_type_t type;
+    int protocol;
 };
 
-http_server_t* local_server_init(const http_server_config_t* config)
+static void __free_local_server(local_server_t* server)
 {
-    http_server_t* server = NULL;
+    if (server) {
+        server_destroy(server->info);
+        free(server);
+    }
+}
+
+local_server_t* server_local_init(const server_config_t* config)
+{
+    local_server_t* server = NULL;
     if (!config)
         goto err;
 
-    server = (http_server_t*)malloc(sizeof(http_server_t));
+    server = (local_server_t*)malloc(sizeof(local_server_t));
     if (!server)
         goto err;
 
-    server->sock = (socket_t*)malloc(sizeof(socket_t));
-    if (!(server->sock))
-        goto err;
+    server->type = SERVER_TYPE_LOCAL;
+    server->info = server_init(server->type, config);
 
-    server->config = (http_server_config_t*)malloc(sizeof(http_server_config_t));
-    if (!(server->config))
+    if (!server->info)
         goto err;
-
-    memcpy(server->config, config, sizeof(http_server_config_t));
 
     return server;
 
 err:
-    if (server && server->sock)
-        free(server->sock);
-    if (server)
-        free(server);
+    __free_local_server(server);
 
     return NULL;
 }
 
-int local_server_listen(const http_server_t* server, const char* path)
+int server_local_listen(const local_server_t* server, const char* path, void (*on_listen)(void* usr))
 {
-    // TODO fill all socket_t fields
-    socket_t new_sock;
-    int status;
-
-    if ((new_sock.descriptor = connection_open(server->sock, UNIX_SOCKET, 0, path, server->config->backlog)) == -1)
-        return -1;
-
-    status = connection_polling(&new_sock, &(server->config->poll));
-
-    return status;
+    return server_listen(server->type, server->info, UNIX_SOCKET, 0, path, (struct sockaddr_un*)&server->su, on_listen);
 }
 
-void local_server_destroy(http_server_t* server)
+void server_local_destroy(local_server_t* server)
 {
-    connection_close(server->sock);
-    free(server->sock);
-    free(server->config);
-    free(server);
+    connection_close_local(server->su.sun_path);
+    __free_local_server(server);
 }

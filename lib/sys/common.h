@@ -15,6 +15,7 @@ extern "C" {
 #endif // _MSC_VER
 #else
 #include <netinet/in.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -23,7 +24,9 @@ extern "C" {
 #define SOCKET_NAME_MAX 32
 #define SET_HEADER(key, value) key ": " value "\r\n"
 
+typedef struct local_server local_server_t;
 typedef struct http_server http_server_t;
+typedef struct https_server https_server_t;
 
 typedef enum socket_type {
     TCP_SOCKET,
@@ -38,45 +41,52 @@ struct socket {
     int domain;
     socket_type_t type;
     int protocol;
-    // TODO allocate structs dynamically
+    // TODO remove this union
     union {
-        struct sockaddr_in sa;
-        struct sockaddr_un su;
+        struct sockaddr_in* sa;
+        struct sockaddr_un* su;
     };
 };
 
 typedef struct socket socket_t;
 
+typedef enum server_type {
+    SERVER_TYPE_LOCAL = 1,
+    SERVER_TYPE_REMOTE
+} server_type_t;
+
+typedef int (*fd0_ev_handler_t)(int socket, int ev, struct sockaddr* addr);
+typedef int (*inc_ev_handler_t)(int socket, int ev, struct sockaddr* addr);
+typedef int (*int_handler_t)(void);
+
 struct poll_config {
     // number of file descriptors
     int nfds;
-    // timeout in ms to check for events
-    int timeout;
     // events to listen in fd 0
-    int levents;
-    // handler for events in fd 0
-    int (*lev_handler)(int socket, int ev, struct sockaddr* addr);
+    int fd0_events;
     // events to listen when fd 0 is already listening
     int events;
+    // timeout in ms to check for events
+    int timeout;
+    // handler for events in fd 0
+    fd0_ev_handler_t fd0_ev_handler;
     // handler for events
-    int (*ev_handler)(int socket, int ev, struct sockaddr* addr);
-
-    int (*int_handler)(void);
-
-    struct sockaddr_in sa;
+    inc_ev_handler_t ev_handler;
+    // hadler for interrupts
+    int_handler_t int_handler;
 };
 
 typedef struct poll_config poll_config_t;
 
-struct http_server_config {
-    int backlog;
+struct server_config {
     poll_config_t poll;
+    int backlog;
 };
 
-typedef struct http_server_config http_server_config_t;
+typedef struct server_config server_config_t;
 
 struct https_server_config {
-    http_server_config_t common;
+    server_config_t common;
 };
 
 typedef struct https_server_config https_server_config_t;

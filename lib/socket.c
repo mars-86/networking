@@ -1,5 +1,4 @@
 #include "networking.h"
-#include "sys/common.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -20,7 +19,7 @@
 #include <unistd.h>
 #define _handle_err(msg) perror(msg)
 #define _handle_err_and_clean(msg) _handle_err(msg)
-#define _close_socket(socket) close(socket)
+#define _close_socket(socket, status) status = close(socket)
 #endif // __WIN32
 
 // TODO fix this. Not Thread Safe
@@ -40,7 +39,7 @@ static void __set_sighandler(void)
     sigaction(SIGINT, &sa, NULL);
 }
 
-static int __create_unix_socket(struct sockaddr_un* su, const char* path)
+static int __create_local_socket(struct sockaddr_un* su, const char* path)
 {
     struct sockaddr_un __su;
 
@@ -57,7 +56,7 @@ static int __create_unix_socket(struct sockaddr_un* su, const char* path)
     return 0;
 }
 
-static int __create_tcp_udp_socket(struct sockaddr_in* sa, unsigned short port)
+static int __create_inet_socket(struct sockaddr_in* sa, unsigned short port)
 {
     struct sockaddr_in __sa;
     if (!sa)
@@ -119,38 +118,43 @@ int socket_create(socket_type_t type, socket_t* sock)
     return sd;
 }
 
-int socket_listen(int socket, unsigned short port, const char* path, int backlog, socket_t* sock)
+int socket_listen(int socket, int backlog, unsigned short port, struct sockaddr_in* si, const char* path, struct sockaddr_un* su)
 {
-    struct sockaddr_in sa;
-    struct sockaddr_un su;
+    struct sockaddr_in __si = { 0 };
+    struct sockaddr_un __su = { 0 };
+    void* __saddr = NULL;
+    socklen_t __saddr_len = 0;
 
-    if (path) {
-        if (__create_unix_socket(&su, path) < 0)
+    if (port) {
+        if (__create_inet_socket(&__si, port) < 0)
             return -1;
 
-        if (bind(socket, (struct sockaddr*)&su, sizeof(su)) < 0) {
-            _handle_err_and_clean("bind socket");
+        if (si)
+            memcpy(si, &__si, sizeof(struct sockaddr_in));
+
+        __saddr = (struct sockaddr_in*)&__si;
+        __saddr_len = sizeof(struct sockaddr_in);
+    } else if (path) {
+        if (__create_local_socket(&__su, path) < 0)
             return -1;
-        }
+
+        if (su)
+            memcpy(su, &__su, sizeof(struct sockaddr_un));
+
+        __saddr = (struct sockaddr_un*)&__su;
+        __saddr_len = sizeof(struct sockaddr_un);
     } else {
-        if (__create_tcp_udp_socket(&sa, port) < 0)
-            return -1;
+        return -1;
+    }
 
-        if (bind(socket, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
-            _handle_err_and_clean("bind socket");
-            return -1;
-        }
+    if (bind(socket, (struct sockaddr*)__saddr, __saddr_len) < 0) {
+        _handle_err_and_clean("bind socket");
+        return -1;
     }
 
     if (listen(socket, backlog) < 0) {
         _handle_err_and_clean("listen failed");
         return -1;
-    }
-
-    if (sock != NULL) {
-        sock->sa.sin_family = sa.sin_family;
-        sock->sa.sin_addr.s_addr = sa.sin_addr.s_addr;
-        sock->sa.sin_port = port;
     }
 
     return 0;
@@ -191,52 +195,56 @@ int socket_connect(int socket, struct sockaddr* addr)
     return newsd;
 }
 
-int socket_recv(int socket, void* buff, size_t len, int flags)
+int socket_recv(int socket, void* buff, size_t len, int flags, struct sockaddr* sa, socklen_t* addr_len)
 {
-    return recvfrom(socket, buff, len, flags, NULL, NULL);
+    return recvfrom(socket, buff, len, flags, sa, addr_len);
 }
 
-int socket_send(int socket, const void* buff, size_t len, int flags)
+int socket_send(int socket, const void* buff, size_t len, int flags, const struct sockaddr* sa, socklen_t addr_len)
 {
-    return sendto(socket, buff, len, flags, NULL, 0);
+    return sendto(socket, buff, len, flags, sa, addr_len);
 }
 
-void socket_close(int socket, const char* path)
+int socket_close(int socket, const char* path)
 {
-    _close_socket(socket);
+    int status = 0;
 
     if (path)
         unlink(path);
+
+    _close_socket(socket, status);
+
+    return status;
 }
 
-int socket_poll(int listen_sock, const poll_config_t* config)
+int socket_poll(int socket, int nfds, int fd0ev, int events, int timeout, fd0_ev_handler_t fd0_ev_handler, inc_ev_handler_t ev_handler, int_handler_t int_handler)
 {
 #ifdef __WIN32
     WSAPOLLFD fds[config->nfds];
     int (*evpoll)(WSAPOLLFD*, unsigned long, int) = WSAPoll;
 #else
     // TODO change for dynamic allocation
-    struct pollfd fds[config->nfds];
+    struct pollfd fds[nfds];
     int (*evpoll)(struct pollfd*, nfds_t, int) = poll;
 #endif
     struct sockaddr addr;
-    int events = 0, n = 1, ret, i;
-    fds[0].fd = listen_sock;
-    fds[0].events = config->levents;
+    int __events = 0, n = 1, ret, i;
+    fds[0].fd = socket;
+    fds[0].events = fd0ev;
 
     __set_sighandler();
 
     do {
-        events = evpoll(fds, n, config->timeout);
-        if (events) {
+        __events = evpoll(fds, n, timeout);
+        if (__events) {
             if (fds[0].revents) {
-                fds[n].fd = config->lev_handler(fds[0].fd, fds[0].revents, &addr);
-                fds[n].events = config->events;
+                fds[n].fd = fd0_ev_handler(fds[0].fd, fds[0].revents, &addr);
+                fds[n].events = events;
                 ++n;
             } else {
                 for (i = 1; i < n; ++i)
                     if (fds[i].revents) {
-                        ret = config->ev_handler(fds[i].fd, fds[i].revents, &addr);
+                        ret = ev_handler(fds[i].fd, fds[i].revents, &addr);
                         if (!ret) {
                             close(fds[i].fd);
                             --n;
