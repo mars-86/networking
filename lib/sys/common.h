@@ -15,6 +15,7 @@ extern "C" {
 #endif // _MSC_VER
 #else
 #include <netinet/in.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>

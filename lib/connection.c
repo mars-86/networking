@@ -1,23 +1,6 @@
 #include "networking.h"
 #include <sys/un.h>
 
-int connection_open(socket_t* sock, int type, unsigned short port, const char* path, int backlog)
-{
-    int sd;
-    if ((sd = socket_create(type, sock)) < 0)
-        return -1;
-
-    if (path) {
-        if (socket_unix_listen(sd, path, backlog, sock->su) < 0)
-            return -1;
-    } else {
-        if (socket_inet_listen(sd, port, backlog, sock->sa) < 0)
-            return -1;
-    }
-
-    return sd;
-}
-
 int connection_open_local(socket_t* sock, const char* path, int backlog, struct sockaddr_un* su)
 {
     int sd;
@@ -27,7 +10,7 @@ int connection_open_local(socket_t* sock, const char* path, int backlog, struct 
     if (!path)
         return -1;
 
-    if (socket_unix_listen(sd, path, backlog, su) < 0)
+    if (socket_listen(sd, backlog, 0, NULL, path, su) < 0)
         return -1;
 
     return sd;
@@ -38,8 +21,11 @@ int connection_open_remote(socket_t* sock, int type, unsigned short port, int ba
     int sd;
     if ((sd = socket_create(type, sock)) < 0)
         return -1;
-
-    if (socket_inet_listen(sd, port, backlog, si) < 0)
+    /*
+        if (socket_inet_listen(sd, port, backlog, si) < 0)
+            return -1;
+    */
+    if (socket_listen(sd, backlog, port, si, NULL, NULL) < 0)
         return -1;
 
     return sd;

@@ -1,5 +1,4 @@
 #include "networking.h"
-#include "sys/common.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -40,7 +39,7 @@ static void __set_sighandler(void)
     sigaction(SIGINT, &sa, NULL);
 }
 
-static int __create_unix_socket(struct sockaddr_un* su, const char* path)
+static int __create_local_socket(struct sockaddr_un* su, const char* path)
 {
     struct sockaddr_un __su;
 
@@ -57,7 +56,7 @@ static int __create_unix_socket(struct sockaddr_un* su, const char* path)
     return 0;
 }
 
-static int __create_tcp_udp_socket(struct sockaddr_in* sa, unsigned short port)
+static int __create_inet_socket(struct sockaddr_in* sa, unsigned short port)
 {
     struct sockaddr_in __sa;
     if (!sa)
@@ -119,7 +118,6 @@ int socket_create(socket_type_t type, socket_t* sock)
     return sd;
 }
 
-// TODO split in two functions
 int socket_listen(int socket, int backlog, unsigned short port, struct sockaddr_in* si, const char* path, struct sockaddr_un* su)
 {
     struct sockaddr_in __si = { 0 };
@@ -127,16 +125,26 @@ int socket_listen(int socket, int backlog, unsigned short port, struct sockaddr_
     void* __saddr = NULL;
     socklen_t __saddr_len = 0;
 
-    if (path) {
-        if (__create_unix_socket(&__su, path) < 0)
+    if (port) {
+        if (__create_inet_socket(&__si, port) < 0)
             return -1;
+
+        if (si)
+            memcpy(si, &__si, sizeof(struct sockaddr_in));
+
+        __saddr = (struct sockaddr_in*)&__si;
+        __saddr_len = sizeof(struct sockaddr_in);
+    } else if (path) {
+        if (__create_local_socket(&__su, path) < 0)
+            return -1;
+
+        if (su)
+            memcpy(su, &__su, sizeof(struct sockaddr_un));
+
         __saddr = (struct sockaddr_un*)&__su;
         __saddr_len = sizeof(struct sockaddr_un);
     } else {
-        if (__create_tcp_udp_socket(&__si, port) < 0)
-            return -1;
-        __saddr = (struct sockaddr_in*)&__si;
-        __saddr_len = sizeof(struct sockaddr_in);
+        return -1;
     }
 
     if (bind(socket, (struct sockaddr*)__saddr, __saddr_len) < 0) {
@@ -148,66 +156,6 @@ int socket_listen(int socket, int backlog, unsigned short port, struct sockaddr_
         _handle_err_and_clean("listen failed");
         return -1;
     }
-
-    if (path) {
-        if (su)
-            memcpy(su, &__su, sizeof(struct sockaddr_un));
-    } else {
-        if (si)
-            memcpy(si, &__si, sizeof(struct sockaddr_in));
-    }
-
-    return 0;
-}
-
-int socket_inet_listen(int socket, unsigned short port, int backlog, struct sockaddr_in* si)
-{
-    struct sockaddr_in __sa;
-
-    __sa.sin_family = AF_INET;
-    __sa.sin_port = htons(port);
-    __sa.sin_addr.s_addr = inet_addr("127.0.0.1");
-
-    if (bind(socket, (struct sockaddr*)&__sa, sizeof(__sa)) < 0) {
-        _handle_err_and_clean("bind socket");
-        return -1;
-    }
-
-    if (listen(socket, backlog) < 0) {
-        _handle_err_and_clean("listen failed");
-        return -1;
-    }
-
-    if (si)
-        memcpy(si, &__sa, sizeof(struct sockaddr_in));
-
-    return 0;
-}
-
-int socket_unix_listen(int socket, const char* path, int backlog, struct sockaddr_un* su)
-{
-    struct sockaddr_un __su;
-
-    size_t __path_len = strlen(path);
-    if (!su || __path_len > SUN_MAX_PATH_LEN)
-        return -1;
-
-    __su.sun_family = AF_UNIX;
-    // __path_len + 1 copy NULL byte
-    memcpy(__su.sun_path, path, __path_len + 1);
-
-    if (bind(socket, (struct sockaddr*)&__su, sizeof(__su)) < 0) {
-        _handle_err_and_clean("bind socket");
-        return -1;
-    }
-
-    if (listen(socket, backlog) < 0) {
-        _handle_err_and_clean("listen failed");
-        return -1;
-    }
-
-    if (su)
-        memcpy(su, &__su, sizeof(struct sockaddr_un));
 
     return 0;
 }

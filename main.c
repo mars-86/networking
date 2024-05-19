@@ -1,8 +1,5 @@
-#include <stdio.h>
-// #include <stdlib.h>
-#include "lib/sys/common.h"
 #include "networking.h"
-#include <poll.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -58,7 +55,7 @@ int pong(int s, int e, struct sockaddr* addr)
     printf("on sock %d RECV %d\n", s, rbytes);
     printf("%s\n", request);
     if (rbytes > 0) {
-        http_response(response, OK, headers, "world!");
+        http_response(response, OK, headers, "world!\n");
         int sbytes = connection_send(&sock, response, strlen(response));
 
         printf("on sock %d SENT %d\n", s, sbytes);
@@ -94,30 +91,31 @@ int main(void)
     sconf.poll.events = POLLIN;
     sconf.poll.ev_handler = pong;
     sconf.poll.timeout = 1000;
-    /*
-        local_server_t* server = server_local_init(&sconf);
-        printf("server created\n");
 
-        int status = server_local_listen(server, SERVER_PATH, on_listen_local);
-
-        if (status == -1)
-            perror("listen");
-
-        server_local_destroy(server);
-
-        printf("server destroyed\n");
-    */
-    http_server_t* server = server_http_init(&sconf);
+    local_server_t* server = server_local_init(&sconf);
     printf("server created\n");
 
-    int status = server_http_listen(server, 5037, on_listen_remote);
+    int status = server_local_listen(server, SERVER_PATH, on_listen_local);
 
     if (status == -1)
         perror("listen");
 
-    server_http_destroy(server);
+    server_local_destroy(server);
 
     printf("server destroyed\n");
 
+    /*
+        http_server_t* server = server_http_init(&sconf);
+        printf("server created\n");
+
+        int status = server_http_listen(server, 5037, on_listen_remote);
+
+        if (status == -1)
+            perror("listen");
+
+        server_http_destroy(server);
+
+        printf("server destroyed\n");
+    */
     return 0;
 }

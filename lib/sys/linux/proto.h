@@ -19,7 +19,6 @@ int socket_send(int socket, const void* buff, size_t len, int flags, const struc
 int socket_poll(int socket, int nfds, int fd0ev, int events, int timeout, fd0_ev_handler_t fd0_ev_handler, inc_ev_handler_t ev_handler, int_handler_t int_handler);
 int socket_close(int socket, const char* path);
 
-int connection_open(socket_t* socket, int type, unsigned short port, const char* path, int backlog);
 int connection_open_local(socket_t* sock, const char* path, int backlog, struct sockaddr_un* su);
 int connection_open_remote(socket_t* sock, int type, unsigned short port, int backlog, struct sockaddr_in* si);
 int connection_accept(socket_t* socket, struct sockaddr* addr);
