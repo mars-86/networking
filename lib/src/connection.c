@@ -1,4 +1,4 @@
-#include "networking.h"
+#include "../networking.h"
 #include <sys/un.h>
 
 int connection_open_local(socket_t* sock, const char* path, int backlog, struct sockaddr_un* su)

@@ -1,4 +1,4 @@
-#include "networking.h"
+#include "../networking.h"
 #include "server.h"
 #include <stdlib.h>
 
