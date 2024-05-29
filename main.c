@@ -3,7 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#define SERVER_PATH "/home/mars/server.sock"
+#define SERVER_PATH "/home/server.sock"
 
 char buffer[2048];
 
