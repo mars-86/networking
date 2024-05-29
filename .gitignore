@@ -2,10 +2,16 @@
 autom4te.cache
 ar-lib
 compile
+config.h
 config.h.in
+config.log
+config.status
 depcomp
 install-sh
 missing
+.deps
+Makefile
+stamp-h1
 
 # Prerequisites
 *.d
