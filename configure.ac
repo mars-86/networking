@@ -1,4 +1,4 @@
-AC_INIT([networking], [1.0], [])
+AC_INIT([libnetworking], [1.0], [])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 AC_PROG_RANLIB
 AM_PROG_AR
