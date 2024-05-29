@@ -1,5 +1,4 @@
-#include "networking.h"
-#include "sys/common.h"
+#include "../networking.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

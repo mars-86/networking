@@ -1,7 +1,5 @@
 #include "server.h"
-#include "networking.h"
-#include "sys/common.h"
-#include "sys/linux/proto.h"
+#include "../networking.h"
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>

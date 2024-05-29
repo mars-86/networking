@@ -1,7 +1,7 @@
 #ifndef __LIB_SERVER_INCLUDED_H__
 #define __LIB_SERVER_INCLUDED_H__
 
-#include "sys/common.h"
+#include "../networking.h"
 
 struct server {
     socket_t* sock;

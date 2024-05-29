@@ -1,4 +1,4 @@
-#include "networking.h"
+#include "../networking.h"
 #include <string.h>
 
 #define END_OF_HEADERS(headers) (*headers == '\r' && *(headers + 1) == '\n')
